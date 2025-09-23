@@ -8,6 +8,7 @@ use std::sync::mpsc::{self, Sender};
 use rodio::{Decoder, Sink};
 use egui_file_dialog::FileDialog;
 use eframe;
+use std::sync::Arc;
 
 fn main() -> Result<(), eframe::Error> {
     
@@ -53,7 +54,19 @@ fn main() -> Result<(), eframe::Error> {
         }
     });
 
-    eframe::run_native("FUCKING GUI", options, Box::new(|_cc| Ok(Box::new(MyApp { sender: send_sink, path: String::new(), song_sender: send_song, song_paths:Vec::new()}))))
+    eframe::run_native("FUCKING GUI", options, Box::new(|_cc| 
+        Ok(Box::new(MyApp { 
+            sender: send_sink, 
+            path: String::new(), 
+            song_sender: send_song, 
+            song_paths:Vec::new(),
+            file_dialog: FileDialog::new().add_file_filter(
+        "MP3 filters",
+        Arc::new(|p| p.extension().unwrap_or_default() == "mp3"),
+                ).default_file_filter("MP3 filters"),
+            picked_file: None,
+            picking: false
+            }))))
     
 }
 
@@ -67,6 +80,9 @@ pub struct MyApp{
     path: String,
     song_sender: Sender<Vec<PathBuf>>,
     song_paths: Vec<PathBuf>,
+    file_dialog: FileDialog,
+    picked_file: Option<PathBuf>,
+    picking: bool
 }
 
 impl eframe::App for MyApp {
@@ -89,32 +105,55 @@ impl eframe::App for MyApp {
 
                     ui.end_row();
                     
-                    if ui.button("Pick Folder").clicked(){
-                        let mut file_dialog = FileDialog::new();
-                            file_dialog.pick_file();
-                            //file_dialog.update(ctx);
+                    if ui.button("Pick Folder (Playlist)").clicked(){
+                        self.picking = true;
+                        self.file_dialog.pick_directory();
                     }
 
-                    if ui.button("Scan Directory").clicked() {
-                        let paths = fs::read_dir(&self.path).unwrap();
-                        self.song_paths.clear();
-                        for dir in paths {
-                            let directory: PathBuf = dir.unwrap().path();
-                            self.song_paths.push(directory);
-                        }
+                    if ui.button("Pick File").clicked(){
+                        self.picking = true;
+                        self.file_dialog.pick_file();
                     }
+
+                    if self.picking{self.file_dialog.update(ctx);}
+                    if let Some(path) = self.file_dialog.take_picked() {
+                        self.song_paths.clear();
+                        self.picking = false;
+                        let paths = Some(path).clone().unwrap();
+                        self.song_paths.push(paths.clone());
+                        self.song_paths.extend(get_song(&paths));
+
+                    }
+
+                    
 
                     for directory in self.song_paths.clone(){
                         let director = directory.display().to_string();
-                        let name = director.split("\\").last().unwrap();
-                        ui.end_row();
-                        ui.label(name);
-                        if ui.button("Play").clicked(){
-                        self.sender.send(3).unwrap();
-                        self.song_sender.send(get_song(&directory)).unwrap();
-                        }
-                        if ui.button("Queue").clicked(){
-                        self.song_sender.send(get_song(&directory)).unwrap();
+                        let name = (director.split("/").last().unwrap()).split(".").next().unwrap();
+                        if(directory.is_dir()){
+                            ui.end_row();
+                            ui.label("Folder/Playlist");
+                            ui.end_row();
+                            ui.label(name);
+                            if ui.button("Play").clicked(){
+                                self.sender.send(3).unwrap();
+                                self.song_sender.send(get_song(&directory)).unwrap();
+                            }
+                            if ui.button("Queue").clicked(){
+                                self.song_sender.send(get_song(&directory)).unwrap();
+                            }
+                            ui.end_row();
+                            ui.label("----------------------------------------------------------");
+                        } else {
+                            ui.end_row();
+                            ui.label(name);
+                            if ui.button("Play").clicked(){
+                                self.sender.send(3).unwrap();
+                                self.song_sender.send(get_song(&directory)).unwrap();
+                            }
+                            if ui.button("Queue").clicked(){
+                                self.song_sender.send(get_song(&directory)).unwrap();
+                            }
                         }
                     }
                 //}  
