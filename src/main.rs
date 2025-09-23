@@ -3,7 +3,6 @@ use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::{fs::File, fs};
 use std::thread;
-use egui::epaint::tessellator::Path;
 use id3::{Tag, TagLike};
 use std::sync::mpsc::{self, Sender};
 use rodio::{Decoder, Sink};
