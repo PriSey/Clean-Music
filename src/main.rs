@@ -39,9 +39,7 @@ fn main() -> Result<(), eframe::Error> {
                         sink.play();
                         println!("{:?}",songs.get(song));
                         add_song(songs.get(song).unwrap().clone(), &sink);
-                    }
-                //     println!("{:?}",song);
-                //     add_song(song, &sink);   
+                    }  
                 }          
 
 
