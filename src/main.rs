@@ -121,7 +121,9 @@ impl eframe::App for MyApp {
                         self.picking = false;
                         let paths = Some(path).clone().unwrap();
                         self.song_paths.push(paths.clone());
-                        self.song_paths.extend(get_song(&paths));
+                        if paths.is_dir(){
+                            self.song_paths.extend(get_song(&paths));
+                        }
 
                     }
 
