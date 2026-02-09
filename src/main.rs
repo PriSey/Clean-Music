@@ -1,19 +1,34 @@
 
-use std::ffi::OsStr;
 use std::path::PathBuf;
-use std::{fs::File, fs};
+use std::{fs::File};
 use std::thread;
+use egui::epaint::tessellator::Path;
+use futures::io::BufReader;
 use id3::{Tag, TagLike};
 use std::sync::mpsc::{self, Sender};
-use rodio::{Decoder, Sink};
+use rodio::{Decoder, Sink, math};
 use egui_file_dialog::FileDialog;
 use eframe;
 use std::sync::Arc;
+use genius_rust::Genius;
+use dotenv;
+use tokio::{self, fs};
+use chartlyrics::Client;
+mod song_data;
+mod song_determiner;
+use tokio::runtime::Runtime;
+use id3_image::embed_image;
+use std::env::current_dir;
 
 fn main() -> Result<(), eframe::Error> {
-    
+    dotenv::dotenv().ok();
+    let genius = Genius::new(std::env::var("TOKEN").expect("TOKEN not set"));
+
     let (send_sink,rec_sink) = mpsc::channel();
     let (send_song,rec_song) = mpsc::channel::<Vec<PathBuf>>();
+    // let song: Vec<&str> = vec!["./songs/test3.mp3","./songs/Test4.mp3","./songs/test5.mp3","./songs/test2.mp3","./songs/test6.mp3"];
+
+    // rt.block_on(song_data::SongData::process_songs(song, "PUfuD1toVu"));
 
     let options = eframe::NativeOptions::default();
 
@@ -63,7 +78,9 @@ fn main() -> Result<(), eframe::Error> {
         Arc::new(|p| p.extension().unwrap_or_default() == "mp3"),
                 ).default_file_filter("MP3 filters"),
             picked_file: None,
-            picking: false
+            picking: false,
+            genius: genius,
+            lyrics: String::new()
             }))))
     
 }
@@ -73,6 +90,34 @@ struct Song {
     track: Option<u32>,
 }
 
+pub struct MessageWindow{
+    message: String
+}
+
+impl eframe::App for MessageWindow{
+    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+         egui::CentralPanel::default().show(ctx, |ui| {
+            ui.label(&self.message)
+         });
+    }
+}
+impl MessageWindow{
+    pub fn pop_up(self) -> Result<(), eframe::Error>{
+        let options = eframe::NativeOptions::default();
+
+            eframe::run_native("No Result Found", options, Box::new(|_cc| 
+        Ok(Box::new(MessageWindow { 
+            message:self.message
+            }))))
+    }
+    fn new(message: String) -> Self{
+        Self{
+            message: message
+        }
+    }
+}
+
+
 pub struct MyApp{
     sender: Sender<usize>,
     path: String,
@@ -80,7 +125,9 @@ pub struct MyApp{
     song_paths: Vec<PathBuf>,
     file_dialog: FileDialog,
     picked_file: Option<PathBuf>,
-    picking: bool
+    picking: bool,
+    genius: Genius,
+    lyrics: String
 }
 
 impl eframe::App for MyApp {
@@ -99,113 +146,154 @@ impl eframe::App for MyApp {
                     }
                     ui.end_row();
 
-                    ui.heading("All your music!");
+                    ui.heading("Add and Process music");
 
                     ui.end_row();
-                    
-                    if ui.button("Pick Folder (Playlist)").clicked(){
-                        self.picking = true;
-                        self.file_dialog.pick_directory();
-                    }
 
                     if ui.button("Pick File").clicked(){
                         self.picking = true;
-                        self.file_dialog.pick_file();
+                        self.file_dialog.pick_multiple();
                     }
 
                     if self.picking{self.file_dialog.update(ctx);}
-                    if let Some(path) = self.file_dialog.take_picked() {
+                    if let Some(path) = self.file_dialog.take_picked_multiple() {
                         self.song_paths.clear();
                         self.picking = false;
                         let paths = Some(path).clone().unwrap();
-                        self.song_paths.push(paths.clone());
-                        if paths.is_dir(){
-                            self.song_paths.extend(get_song(&paths));
-                        }
+                        //println!("{:?}",paths);
+                        let _task = thread::spawn(move || {
+                            println!("Thread Spawned");
+                            // let mut path_splits: Vec<Vec<PathBuf>> = Vec::new();
+                            // let mut split: Vec<PathBuf> = Vec::new();
+                            // let mut song_data: Vec<song_data::SongData> = Vec::new();
+
+                            for song in paths{
+                                thread::spawn(move || {
+                                    let rt = Runtime::new().unwrap();
+                                    println!("Processing song: {:?}", song);
+                                    let song_data = &rt.block_on(song_data::SongData::process_songs(vec![song.clone()], "PUfuD1toVu"))[0];
+                                
+                                if song_data.title == "Unknown".to_string(){
+                                    let message = format!("FAILED processing {:?}" , song).to_string();
+                                    println!("{}", message);
+                                    // let pop_up = MessageWindow::new(message);
+                                    // pop_up.pop_up().unwrap()
+                                } else {
+                                    println!("{:?}",song);
+                                    let song_path = PathBuf::from(song);
+                                    let new_name = PathBuf::from(format!("./Stored_Songs/{}.mp3", song_data.title.replace("/","")));
+                                    rt.block_on(fs::copy(song_path,&new_name)).unwrap();
+                                    let mut tag = Tag::read_from_path(&new_name).unwrap();
+
+                                    tag.set_title(&song_data.title);
+                                    println!("{}",&song_data.title);
+                                    tag.set_artist(&song_data.artist);
+                                    println!("{}",&song_data.artist);
+                                    tag.set_album(&song_data.album);
+                                    println!("{}",&song_data.album);
+
+                                    tag.write_to_path(&new_name, id3::Version::Id3v24).unwrap();
+                                    if let Some(image_path) = song_data.image.clone(){
+                                        match embed_image(&new_name, &image_path) {
+                                            Ok(_) => (),
+                                            Err(_e) => println!("Image failed to read, skipping")
+                                        }
+                                        
+                                    } else {
+                                        println!("No image, skipping image processing")
+                                    }
+                                }
+
+
+                                });
+                            }
+                        });
+
+                    
 
                     }
 
                     
 
-                    for directory in self.song_paths.clone(){
-                        let director = directory.display().to_string();
-                        let name = (director.split("/").last().unwrap()).split(".").next().unwrap();
-                        if(directory.is_dir()){
-                            ui.end_row();
-                            ui.label("Folder/Playlist");
-                            ui.end_row();
-                            ui.label(name);
-                            if ui.button("Play").clicked(){
-                                self.sender.send(3).unwrap();
-                                self.song_sender.send(get_song(&directory)).unwrap();
-                            }
-                            if ui.button("Queue").clicked(){
-                                self.song_sender.send(get_song(&directory)).unwrap();
-                            }
-                            ui.end_row();
-                            ui.label("----------------------------------------------------------");
-                        } else {
-                            ui.end_row();
-                            ui.label(name);
-                            if ui.button("Play").clicked(){
-                                self.sender.send(3).unwrap();
-                                self.song_sender.send(get_song(&directory)).unwrap();
-                            }
-                            if ui.button("Queue").clicked(){
-                                self.song_sender.send(get_song(&directory)).unwrap();
-                            }
-                        }
-                    }
-                //}  
+                  
             });
         });
               
 
     });
+        egui::SidePanel::right("sidebar").resizable(true).show(ctx, |ui| {
+        ui.heading("Lyrics - May be innacurate");
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.label(&self.lyrics);
+
+            ui.set_min_width(300.0);
+        });
+    });
 }
-    
+
 }
-fn get_song(directory: &PathBuf) -> Vec<PathBuf>{
-    if directory.extension().and_then(OsStr::to_str) == Some("mp3") {
-        let mut output = Vec::new();
-        output.push(directory.clone());
-        return output;
-    } else if directory.is_dir() {
-        let mut output = Vec::new();
-        let mut songs: Vec<Song> = fs::read_dir(directory).unwrap()
-            .filter_map(|entry| {
-                let entry = entry.ok()?;
-                let path = entry.path();
-                if path.extension()? == "mp3" {
-                    let track = get_track_number(&path);
-                    Some(Song { path, track })
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        songs.sort_by_key(|s| s.track.unwrap_or(u32::MAX));
-
-        let song_paths: Vec<PathBuf> =  songs.iter().map(|s| s.path.clone()).collect();    
 
 
-        for song in song_paths {
-            let song_path: PathBuf = song;
-            if song_path.extension().and_then(OsStr::to_str) == Some("mp3") {
-                output.push(song_path);
-            }   
-        }
-        return output.clone();
-        } 
-        else {
-        let output = Vec::new();
 
-        return output;
-}
-}
-fn get_track_number(path: &PathBuf) -> Option<u32> {
+
+// fn get_song(directory: &PathBuf) -> Vec<PathBuf>{
+//     if directory.extension().and_then(OsStr::to_str) == Some("mp3") {
+//         let mut output = Vec::new();
+//         output.push(directory.clone());
+//         return output;
+//     } else if directory.is_dir() {
+//         let mut output = Vec::new();
+//         let mut songs: Vec<Song> = fs::read_dir(directory).unwrap()
+//             .filter_map(|entry| {
+//                 let entry = entry.ok()?;
+//                 let path = entry.path();
+//                 if path.extension()? == "mp3" {
+//                     let track = get_track_number(&path);
+//                     Some(Song { path, track })
+//                 } else {
+//                     None
+//                 }
+//             })
+//             .collect();
+
+//         songs.sort_by_key(|s| s.track.unwrap_or(u32::MAX));
+
+//         let song_paths: Vec<PathBuf> =  songs.iter().map(|s| s.path.clone()).collect();    
+
+
+//         for song in song_paths {
+//             let song_path: PathBuf = song;
+//             if song_path.extension().and_then(OsStr::to_str) == Some("mp3") {
+//                 output.push(song_path);
+//             }   
+//         }
+//         return output.clone();
+//         } 
+//         else {
+//         let output = Vec::new();
+
+//         return output;
+// }
+// }
+fn _get_track_number(path: &PathBuf) -> Option<u32> {
     let tag = Tag::read_from_path(path).ok()?;
     tag.track()
 }
 
+async fn _get_lyrics(name: &str, artist: &str) -> String{
+
+    let client = Client::new().await.unwrap();
+    let result = client.search_lyric_direct(&name.to_lowercase(),&artist.to_lowercase()).await.unwrap();
+    //println!("{}", result.lyrics); 
+
+    return result.lyrics;
+}
+
+pub fn remove_whites(mut string:String) -> String{
+    string.retain(|c| !c.is_whitespace());
+    return string;
+}
+
+fn process_mp3(path: &PathBuf, name: &str, artist_credit: &str, album: &str, file: PathBuf) {
+
+}
