@@ -1,7 +1,6 @@
-# Tauri + Vanilla
+# Clean Music
 
-This template should help get you started developing with Tauri in vanilla HTML, CSS and Javascript.
+A simple app to help manage downloaded/burned audio files and playst
 
-## Recommended IDE Setup
+## PLEASE ENSURE ALL AUDIO FILES ARE OBTAINED LEGALLY
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
