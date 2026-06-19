@@ -1,0 +1,150 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+body{
+    display: flex;
+    flex-direction: column;
+    max-height: 100svh;
+    gap: 10px;
+}
+#mainPage{
+    display: flex;
+    flex:8;
+    height: 80svh;
+}2
+#header{
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#footer{
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+#leftBar{
+    flex: 2;
+    height: 100%;
+    margin: 10px;
+    border-right: 2px solid black;
+    background-color: #282828;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+
+}
+#rightBar{
+    flex: 8;
+    margin: 10px;
+    height: 100%;
+    border-radius: 5px;
+    background-color: #0f0f0f;
+    display: flex;
+    flex-direction: column;
+}
+
+.footerItem{
+    margin: 10px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.barHeader{
+    font-size: 100%;
+    flex: 1;
+}
+
+#folder-selector{
+    font-size: 100%;
+    width: 100%;
+    padding: 10px;  
+    max-height: 10%;
+    text-align: left;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+
+}
+.icon{
+    width: 30px;    
+    height: 30px;
+}
+
+#left-bar-directories{
+    justify-content: left;
+}
+#path-slector-text{
+    padding: 5px;
+}
+
+.display{
+    overflow-y: auto;
+    flex: 8;
+    overflow-x: hidden;
+}
+
+.LeftDirectoryButton{
+    display: block;
+    display: flex;
+    justify-content: left;
+}
+
+button{
+    border-radius: 5px;
+}
+
+.songBox{
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.ButtonBox,
+.songTitle{
+    display: inline-block;
+    align-items: center;
+    justify-content: center;
+}
+
+.songTitle{
+    max-width: 50%;
+}
+
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-block;
+    width: 100px;
+    height: 5px;
+    background: rgb(42, 43, 44);
+    padding: 0;
+    margin: 0;
+    border: none;
+    outline: none;
+    border-radius: 2px;
+
+    /* THE FIX: Forces WebKit to forcefully slice the overflowing box-shadow */
+    overflow: clip; 
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 0px;
+    height: 0px;
+    background: transparent;
+    cursor: pointer;
+    box-shadow: -105px 0 0 105px #c4ebef;
+}

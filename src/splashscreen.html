@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <link rel="stylesheet" href ="/main.css" />
+        <link rel="stylesheet" href ="/styles.css" />
+
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <script type="module" src="/main.js" defer></script>
+        <title>Tauri App Test</title>
+    </head>
+    <body>
+        <div id="header"><h1>Clean Music V2</h1></div>
+        <div id="mainPage">
+            <div id="leftBar">
+                <center><h5 class="barHeader">Select your music directory</h5></center>
+
+                <button id="folder-selector"> <img id="file-icon" class="icon" src="./images/file-icon.png"> <span id="path-slector-text">Select a folder</span></button>
+
+                <div id="left-bar-directories" class="display">
+                    <p></p>
+                </div>
+
+            </div>
+            <div id="rightBar">
+                <div><h4 id="folderDisp" class="songBox"></h4></div>
+                <div id="songDisp" class="display">
+                    <p></p>
+                </div>
+            </div>
+        </div>
+        <div id="footer">
+            <div id="current-playing" class="footerItem">
+                <span></span>
+            </div>
+            <div class="buttonBox footerItem">
+                <button id="a1" class="actionButton">Play</button>
+                <button id="a0" class="actionButton">Pause</button>
+                <button id="a2" class="actionButton">Skip Forward</button>
+                <button id="a3" class="actionButton">Clear Queue</button>
+            </div>
+            <div id="volume-box" class="footerItem">
+                <img src="./assets/Volume.svg" id="volume-icon" class="icon">
+                <input type="range" name="Volume" id="volume" min="0" max="100" value="50">
+            </div>
+        </div>
+    </body>
+</html>
