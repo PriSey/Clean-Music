@@ -2,12 +2,9 @@
 use std::fs;
 use std::path::PathBuf;
 use std::ffi::OsStr;
-use std::path::Path;
 mod player;
 use player::Player;
 use tauri::Emitter;
-use tauri::path;
-use tauri::window;
 use std::sync::LazyLock;
 
 static MUSIC_PLAYER: LazyLock<Player> = LazyLock::new(||Player::new());
@@ -31,7 +28,6 @@ fn pull_paths(path: PathBuf) -> Vec<ButtonPayload>{
             continue
         }
         else{
-            println!("Accepting {:?}",proper_path);
             let payload = ButtonPayload {
                 id: proper_path.to_string_lossy().to_string(),
                 text:proper_path.to_string_lossy().to_string().split("/").last().unwrap().to_string(),
@@ -63,7 +59,6 @@ fn fetch_songs(window: tauri::Window, path:String){
 
 #[tauri::command]
 fn load_from_music_folder(window: tauri::Window, path:String){
-    println!("Directory Path: {:?}",path);
     let buttons = pull_paths(PathBuf::from(path));
 
     for button in buttons{
@@ -99,7 +94,6 @@ fn play_song(path:String){
 #[tauri::command]
 fn send_command(cmd:String){
     let command = cmd.chars().last().unwrap();
-    println!("{:?}",command);
     MUSIC_PLAYER.send_command(command.to_digit(10).unwrap() as usize);
 }
 

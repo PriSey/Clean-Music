@@ -1,7 +1,6 @@
 use rodio::{Decoder, Player as Sink};
-use serde_json::de::Read;
-use std::{fs, path::PathBuf, thread, fs::ReadDir, ffi::OsStr};
-use crossbeam_channel::{Receiver,Sender,select};
+use std::{fs, path::PathBuf, thread, fs::ReadDir};
+use crossbeam_channel::{Sender,select};
 
 #[derive (Clone)]
 pub struct Player{
@@ -19,7 +18,6 @@ impl Player {
 
         let _player_thread = thread::spawn(move||{
 
-            println!("Player thread running");
 
             let stream_handle = rodio::DeviceSinkBuilder::open_default_sink().expect("open default audio stream");
             let sink = Sink::connect_new(stream_handle.mixer());
@@ -33,7 +31,7 @@ impl Player {
                                 1 => sink.play(),
                                 2 => sink.skip_one(),
                                 3 => sink.clear(),
-                                _ => println!("TODO")
+                                _ => ()
                             }
 
                         }
@@ -43,7 +41,6 @@ impl Player {
                         {
                             for song in 0..songs.len(){
                                 sink.play();
-                                println!("{:?}",songs.get(song));
                                 add_song(songs.get(song).unwrap().clone(), &sink);
                             }  
                         }
@@ -51,7 +48,6 @@ impl Player {
                 recv(recv_vol) -> msg => {
                     if let Ok(volume) = msg{
                         let volume_adjusted = (volume as f32 / 100.0).powf(3.0);
-                        println!("Set volume too {:?}",volume_adjusted);
                         sink.set_volume(volume_adjusted);
                     }
                 }      
@@ -70,7 +66,6 @@ impl Player {
     }
 
     pub fn send_command(&self, command:usize){
-        println!("Sent: {:?}",command);
         self.send_sink.send(command).unwrap();
     }
 
@@ -105,7 +100,7 @@ impl Player {
 
     pub fn load_dir(&self, directory:PathBuf) -> Vec<PathBuf>{
         let mut command: Vec<PathBuf> = Vec::new();
-        let mut songs: ReadDir = fs::read_dir(directory).unwrap();
+        let songs: ReadDir = fs::read_dir(directory).unwrap();
         for path in songs{
             let song = path.unwrap().path();
             match song.extension() {
