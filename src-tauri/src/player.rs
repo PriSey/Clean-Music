@@ -1,4 +1,4 @@
-use rodio::{Decoder, Player as Sink};
+use rodio::{Decoder, Player as Sink, queue};
 use std::{fs, path::PathBuf, thread, fs::ReadDir};
 use crossbeam_channel::{Sender,select};
 
@@ -6,7 +6,8 @@ use crossbeam_channel::{Sender,select};
 pub struct Player{
     send_sink: Sender<usize>,
     send_song: Sender<Vec<PathBuf>>,
-    send_vol: Sender<usize>
+    send_vol: Sender<usize>,
+    queue: Vec<PathBuf>
 
 }
 
@@ -15,6 +16,7 @@ impl Player {
         let (send_sink, recv_sink) = crossbeam_channel::unbounded::<usize>();
         let (send_song,recv_song) =  crossbeam_channel::unbounded::<Vec<PathBuf>>();
         let (send_vol, recv_vol) = crossbeam_channel::unbounded::<usize>();
+        let queue: Vec<PathBuf> = Vec::new();
 
         let _player_thread = thread::spawn(move||{
 
@@ -37,12 +39,11 @@ impl Player {
                         }
                 },
                 recv(recv_song) -> msg => {
-                    if let Ok(songs) = msg
+                    if let Ok(song) = msg
                         {
-                            for song in 0..songs.len(){
-                                sink.play();
-                                add_song(songs.get(song).unwrap().clone(), &sink);
-                            }  
+                            sink.play();
+                            add_song(song, &sink);
+                              
                         }
                     }
                 recv(recv_vol) -> msg => {
@@ -61,13 +62,14 @@ impl Player {
             }
         });
         
-        Player {send_sink, send_song, send_vol }
+        Player {send_sink, send_song, send_vol, queue }
 
     }
 
     pub fn send_command(&self, command:usize){
         self.send_sink.send(command).unwrap();
     }
+
 
     
     pub fn play_song(&self, song:PathBuf){

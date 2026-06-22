@@ -1,3 +1,42 @@
+:root {
+
+    --bg-color: #dbd7d7;
+    --left-bg: #e5edec;
+    --font-color: #17171b;
+    --border-color: #d2f4f1b7;
+    --right-bg: #dce5e4;
+    --btn-hov: #a1f5f571;
+    --range-bg: #2a2b2c;
+
+
+    font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 400;
+
+    color: var(--font-color);
+    background-color: var(--bg-color);
+
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-color: #17171b;
+        --font-color: #f6f6f6;
+        --left-bg: #212128;
+        --border-color: #1d1d22b9;
+        --btn-hov: #ffffff82;
+        --right-bg: #141419;
+        --range-bg: #5d5f60;
+    }
+}
+
+
 html, body {
     margin: 0;
     padding: 0;
@@ -13,7 +52,7 @@ body{
     display: flex;
     flex:8;
     height: 80svh;
-}2
+}
 #header{
     flex: 1;
     display: flex;
@@ -32,8 +71,8 @@ body{
     flex: 2;
     height: 100%;
     margin: 10px;
-    border-right: 2px solid black;
-    background-color: #282828;
+    border-right: 2px solid var(--border-color);
+    background-color: var(--left-bg);
     border-radius: 5px;
     display: flex;
     flex-direction: column;
@@ -45,7 +84,7 @@ body{
     margin: 10px;
     height: 100%;
     border-radius: 5px;
-    background-color: #0f0f0f;
+    background-color: var(--right-bg);
     display: flex;
     flex-direction: column;
 }
@@ -64,8 +103,8 @@ body{
 
 #folder-selector{
     font-size: 100%;
-    width: 100%;
-    padding: 10px;  
+    display: block;
+    margin: 10px;  
     max-height: 10%;
     text-align: left;
     border-radius: 5px;
@@ -73,7 +112,11 @@ body{
     align-items: center;
     gap: 10px;
     flex: 1;
+    background-color: var(--left-bg);
+}
 
+#folder-selector:hover{
+    background-color: var(--btn-hov);
 }
 .icon{
     width: 30px;    
@@ -97,6 +140,11 @@ body{
     display: block;
     display: flex;
     justify-content: left;
+    background-color: var(--left-bg);
+    margin: 5px;
+}
+.LeftDirectoryButton:hover{
+    background-color: var(--btn-hov);
 }
 
 button{
@@ -107,15 +155,37 @@ button{
     width: 100%;
     display: flex;
     justify-content: space-between;
-    margin-left: 10px;
-    margin-right: 10px;
+    padding-inline: 10px; 
+    box-sizing: border-box; 
 }
 
-.ButtonBox,
 .songTitle{
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: left;
+    flex: 1; 
+}
+
+.ButtonBox{
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    padding:5px;
+    gap: 5px;
+    flex-shrink: 0; 
+    width: max-content;
+}
+
+
+.PQButton{
+    display: inline-block;
+    background-color: var(--right-bg);
+    width: max-content; 
+    padding-inline: 1ch; 
+}
+
+.PQButton:hover{
+    background-color: var(--btn-hov);
 }
 
 .songTitle{
@@ -128,7 +198,7 @@ input[type="range"] {
     display: inline-block;
     width: 100px;
     height: 5px;
-    background: rgb(42, 43, 44);
+    background: var(--range-bg);
     padding: 0;
     margin: 0;
     border: none;
@@ -146,5 +216,48 @@ input[type="range"]::-webkit-slider-thumb {
     height: 0px;
     background: transparent;
     cursor: pointer;
-    box-shadow: -105px 0 0 105px #c4ebef;
+    box-shadow: -105px 0 0 105px #6ed4dfbd;
+}
+
+h1 {
+  text-align: center;
+}
+
+.actionButton{
+    background-color: var(--bg-color);
+}
+
+input,
+button {
+    border-radius: 5px;
+    border: 1px solid transparent;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    font-weight: 500;
+    font-family: inherit;
+    color: #0f0f0f;
+    background-color: #ffffff;
+    transition: border-color 0.25s;
+    outline: none;
+}
+
+button {
+    cursor: pointer;
+}
+
+
+button:active {
+    background-color: #e8e8e8;
+}
+
+button:hover{
+    background-color: var(--btn-hov);
+}
+
+@media (prefers-color-scheme: dark) {
+    input,
+    button {
+        color: #ffffff;
+        background-color: #00000000;
+    }
 }
