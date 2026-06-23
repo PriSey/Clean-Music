@@ -10,10 +10,6 @@ let lbd;
 let song_disp;
 
 listen("LeftbarDirButtons", (event) => {
-  console.log("Displaying Directories")
-  console.log(event.payload)
-
-  console.log(lbd);2
 
   let directory_button = document.createElement("button");
   directory_button.dataset.path = event.payload.id;
@@ -31,7 +27,6 @@ listen("LeftbarDirButtons", (event) => {
 }); 
 
 listen("CreateSongButtons", (event) => {
-  console.log(event.payload);
 
   let song_box = document.createElement("div");
   song_box.classList.add("songBox")
@@ -39,7 +34,8 @@ listen("CreateSongButtons", (event) => {
   title.innerText = event.payload.text;
   title.classList.add("songTitle")
   let play = document.createElement("button");
-  play.classList.add("songPlayButton")
+  play.classList.add("PButton")
+  play.classList.add("PQButton")
   play.dataset.path = event.payload.id;
   play.innerText = "play";
 
@@ -49,7 +45,8 @@ listen("CreateSongButtons", (event) => {
   });
 
   let queue = document.createElement("button");
-  queue.classList.add("songQueueButton")
+  queue.classList.add("QButton")
+  queue.classList.add("PQButton")
   queue.dataset.path = event.payload.id;
   queue.innerText = "queue"
 
@@ -88,16 +85,19 @@ async function directoryButtonFunction(clickEvent){
   let play = document.createElement("button");
   play.innerText = "play";
   play.dataset.path = target_path;
-  play.classList.add("dispPlay")
+  play.classList.add("PButton")
+  play.classList.add("PQButton")
+
 
   let queue = document.createElement("button");
   queue.innerText = "queue";
   queue.dataset.path = target_path;
-  queue.classList.add("dispQueue");
+  queue.classList.add("QButton");
+  queue.classList.add("PQButton")
+
 
   let isDir = await invoke("check_dir",{path: target_path});
 
-  console.log(isDir)
 
   if (isDir){
     play.addEventListener("click", async function(clickEvent) {
@@ -172,7 +172,6 @@ window.addEventListener("DOMContentLoaded", () => {
   let volume_slider = document.getElementById("volume");
   volume_slider.addEventListener("change", async function(event){
     let volume = volume_slider.value;
-    console.log(volume);
     await invoke("set_volume", {volume: volume});
   });
 
