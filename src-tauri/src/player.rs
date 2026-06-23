@@ -42,7 +42,7 @@ impl Player {
                     if let Ok(song) = msg
                         {
                             sink.play();
-                            add_song(song, &sink);
+                            add_song(song.get(0).unwrap().to_path_buf(), &sink);
                               
                         }
                     }
