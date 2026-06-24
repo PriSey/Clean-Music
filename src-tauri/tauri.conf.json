@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "splashscreen",
+        "title": "Clean Music",
         "label": "splashscreen",
         "url":"/splashscreen",
         "width": 800,

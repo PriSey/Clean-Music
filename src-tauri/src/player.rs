@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf, fs::ReadDir};
+use std::{fs, path::PathBuf, fs::ReadDir, time::Duration};
 mod queue;
 use queue::Queue;
 
@@ -22,6 +22,8 @@ impl Player {
             2 => self.queue.skip_forward(),
             3 => self.queue.skip_backward(),
             4 => self.queue.clear(),
+            5 => self.queue.loop_song(),
+            6 => self.queue.loop_stop(),
             _ => println!("How did you get here?")
         }
     }
@@ -80,4 +82,37 @@ impl Player {
     pub fn set_volume(&self, volume:usize){
         self.queue.set_volume(volume);
     }
+
+    pub fn get_position(&self) -> usize{
+        let current_position = self.queue.get_position();
+        return current_position as usize;
+    }
+
+    pub fn get_playing(&self) -> bool{
+        return self.queue.get_playing();
+    }
+
+    pub fn get_song_duration(&self) -> Duration{
+        let final_duration;
+        let duration_wrapped = self.queue.get_song_duration();
+        match duration_wrapped {
+            Some(duration) => {
+                final_duration = duration;
+            },
+            _ => {
+                final_duration = Duration::from_millis(0);
+            }
+        }
+        return final_duration;
+    }
+
+    pub fn seek(&self, position: usize){
+        self.queue.seek_position(position);
+    }
+
+    pub fn current(&self) -> PathBuf{
+        return self.queue.get_current_song();
+    }
+
+    
 }

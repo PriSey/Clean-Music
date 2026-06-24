@@ -1512,6 +1512,7 @@ name = "gui_test"
 version = "0.1.0"
 dependencies = [
  "crossbeam-channel",
+ "rand",
  "rodio",
  "serde",
  "serde_json",

@@ -2,6 +2,7 @@
 use std::fs;
 use std::path::PathBuf;
 use std::ffi::OsStr;
+use std::time::Duration;
 mod player;
 use player::Player;
 use tauri::Emitter;
@@ -92,14 +93,40 @@ fn play_song(path:String){
 }
 
 #[tauri::command]
-fn send_command(cmd:String){
-    let command = cmd.chars().last().unwrap();
-    MUSIC_PLAYER.send_command(command.to_digit(10).unwrap() as usize);
+fn send_command(cmd:usize){
+    MUSIC_PLAYER.send_command(cmd);
 }
 
 #[tauri::command]
 fn set_volume(volume:String){
     MUSIC_PLAYER.set_volume(volume.parse::<usize>().unwrap());
+}
+
+#[tauri::command]
+fn get_position() -> f32{
+    let total_pos = Duration::as_millis(&MUSIC_PLAYER.get_song_duration()) as f32;
+    let real_pos = MUSIC_PLAYER.get_position() as f32;
+    let virt_pos = (real_pos/total_pos) * 1000.0;
+    return virt_pos;
+}
+
+#[tauri::command]
+fn get_up() -> bool{
+    return MUSIC_PLAYER.get_playing();
+}
+
+#[tauri::command]
+fn seek_position(virtual_position: f32){
+    let total_pos = Duration::as_millis(&MUSIC_PLAYER.get_song_duration()) as f32;
+    let real_pos = (virtual_position/1000.0) * total_pos;
+    MUSIC_PLAYER.seek(real_pos as usize);
+}
+#[tauri::command]
+fn get_current_song() -> String{
+    let current_path_dir = MUSIC_PLAYER.current();
+    let current_path = current_path_dir.to_string_lossy();
+    let file_title = current_path.split("/").last().unwrap();
+    return file_title.to_string();
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -120,6 +147,10 @@ pub fn run() {
             play_dir,
             set_volume,
             check_dir,
+            get_position,
+            get_up,
+            seek_position,
+            get_current_song
             ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

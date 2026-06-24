@@ -1,7 +1,8 @@
-use rodio::{Decoder, Player};
-use std::{fs, path::PathBuf, thread, sync::Mutex,sync::Arc, };
-use crossbeam_channel::{Sender,select};
-
+use rodio::{Decoder, Player, Source};
+use tauri::{utils::config::Position};
+use std::{fs, path::PathBuf, thread, sync::Mutex,sync::Arc, time::Duration};
+use crossbeam_channel::{Sender,select_biased};
+use rand::{prelude::*, rng};
 
 #[derive(Clone)]
 pub struct Queue{
@@ -12,7 +13,8 @@ pub struct Queue{
     index: Arc<Mutex<usize>>,
     upd_send: Sender<isize>,
     looping: Arc<Mutex<bool>>,
-    ext_trigger: Arc<Mutex<bool>>
+    ext_trigger: Arc<Mutex<bool>>,
+    current_duration: Arc<Mutex<Option<Duration>>>
 }
 
 impl Queue{
@@ -24,6 +26,7 @@ impl Queue{
         let up = Arc::new(Mutex::new(false));
         let looping = Arc::new(Mutex::new(false));
         let index = Arc::new(Mutex::new(0));
+        let current_duration = Arc::new(Mutex::new(None));
 
         let ext_trigger = Arc::new(Mutex::new(true));
 
@@ -34,18 +37,40 @@ impl Queue{
         let monitor_queue = Arc::clone(&queue);
         let monitor_up = Arc::clone(&up);
         let monitor_looping = Arc::clone(&looping);
+
+        let monitor_duration = Arc::clone(&current_duration);
         
         let monitor_ext_trigger = Arc::clone(&ext_trigger);
 
         let monitor_index = Arc::clone(&index);
 
         let _monitor_thread = thread::spawn(move || {
-            println!("Monitor Running");
             loop{
                 let owned_index = Arc::clone(&monitor_index);
-                select!{
+                select_biased!{
+                    recv(upd_recv) -> msg => {
+                        if let Ok(increment) = msg{
+                            *monitor_ext_trigger.lock().unwrap() = false;
+                            let new;
+                            if increment > 0{
+                                let current_idx: usize = *owned_index.lock().unwrap();
+                                new = current_idx.saturating_add(increment.unsigned_abs());
+                            } else if increment < 0{
+                                let current_idx: usize = *owned_index.lock().unwrap();
+                                new = current_idx.saturating_sub(increment.unsigned_abs());
+                            } else {new = *owned_index.lock().unwrap()}
+                            *owned_index.lock().unwrap() = new;
+                            let song_wrapped = monitor_queue.lock().unwrap().get(*owned_index.lock().unwrap()).cloned(); 
+                            match song_wrapped{
+                                Some(song) => {
+                                    monitor_play(&monitor_sink, &dead_send,song, &monitor_duration, &monitor_up); 
+                                },
+                                _ => {*monitor_up.lock().unwrap() = false;}
+                            }
+                        }
+                    }
+
                     recv(dead_recv) -> msg => {
-                        println!("Monitor received signal int");
                         if let Ok(_recieved) = msg{
                             if !*monitor_ext_trigger.lock().unwrap(){
                                  if !*monitor_looping.lock().unwrap(){
@@ -55,49 +80,28 @@ impl Queue{
                                 let song_wrapped = monitor_queue.lock().unwrap().get(*owned_index.lock().unwrap()).cloned(); 
                                 match song_wrapped{
                                     Some(song) => {
-                                        monitor_play(&monitor_sink, &dead_send,song); 
-                                        *monitor_up.lock().unwrap() = true;
+                                        monitor_play(&monitor_sink, &dead_send,song, &monitor_duration, &monitor_up); 
                                     },
-                                    _ => {*monitor_up.lock().unwrap() = false}
+                                    _ => {*monitor_up.lock().unwrap() = false;}
                                 }
                             }
                         }                            
-                    }
-
-                    recv(upd_recv) -> msg => {
-                        if let Ok(increment) = msg{
-                            *monitor_ext_trigger.lock().unwrap() = false;
-                            let new;
-                            if increment > 0{
-                                new = owned_index.lock().unwrap().saturating_add(increment.unsigned_abs());
-                            } else if increment < 0{
-                                println!("increment received: {}", increment.unsigned_abs());
-                                new = owned_index.lock().unwrap().saturating_sub(increment.unsigned_abs());
-                                println!("new index: {}", new);
-                            } else {new = *owned_index.lock().unwrap()}
-                            *owned_index.lock().unwrap() = new;
-                            let song_wrapped = monitor_queue.lock().unwrap().get(*owned_index.lock().unwrap()).cloned(); 
-                            match song_wrapped{
-                                Some(song) => {
-                                    monitor_play(&monitor_sink, &dead_send,song); 
-                                    *monitor_up.lock().unwrap() = true;
-                                },
-                                _ => {*monitor_up.lock().unwrap() = false}
-                            }
-                        }
                     }
                 }
             }
         
 
 
-            fn monitor_play(sink: &Arc<Mutex<Player>>, dead: &Sender<()>, path: PathBuf){
-                println!("monitor_play called with {:?}", path);
+            fn monitor_play(sink: &Arc<Mutex<Player>>, dead: &Sender<()>, path: PathBuf, duration_var: &Arc<Mutex<Option<Duration>>>, up: &Arc<Mutex<bool>>){
+                let owned_up = Arc::clone(up);
                 let file = fs::File::open(path.clone()).unwrap();
                 let source = Decoder::try_from(file).unwrap();
+                let owned_duration_var = Arc::clone(duration_var);
+                *owned_duration_var.lock().unwrap() = source.total_duration();
                 let owned_sink = Arc::clone(sink);
                 let owned_dead = dead.clone();
                 let _player = thread::spawn(move || {
+                    *owned_up.lock().unwrap() = true;
                     owned_sink.lock().unwrap().append(source);
                     owned_sink.lock().unwrap().play();
                     loop{
@@ -105,18 +109,21 @@ impl Queue{
                         if owned_sink.lock().unwrap().empty(){
                             break;
                         }
-                    }                    
+                    }
+                    *owned_up.lock().unwrap() = false;
+                    *owned_duration_var.lock().unwrap() = None;
                     owned_dead.send(()).unwrap();
                 });
             }
         });
 
-        return Queue { queue, stream_handle, sink, up, index,upd_send , looping, ext_trigger};
+        return Queue { queue, stream_handle, sink, up, index,upd_send , looping, ext_trigger, current_duration};
     }
     
     pub fn clear(&self){
+        *self.ext_trigger.lock().unwrap() = true;
         self.queue.lock().unwrap().clear();
-        self.sink.lock().unwrap().clear();
+        self.sink.lock().unwrap().stop();
         *self.index.lock().unwrap() = 0;
         *self.up.lock().unwrap() = false;
     }
@@ -132,6 +139,7 @@ impl Queue{
         if !*self.up.lock().unwrap(){
             *self.ext_trigger.lock().unwrap() = true;
             self.upd_send.send(0).unwrap();
+            *self.ext_trigger.lock().unwrap() = true;
         }
     }
 
@@ -169,5 +177,42 @@ impl Queue{
     pub fn set_volume(&self, volume:usize){
         let volume_adjusted = (volume as f32 / 100.0).powf(3.0);
         self.sink.lock().unwrap().set_volume(volume_adjusted);
+    }
+
+    pub fn get_position(&self) -> u128{
+        let current_pos = self.sink.lock().unwrap().get_pos();
+        return Duration::as_millis(&current_pos);
+    }
+
+    pub fn seek_position(&self, position:usize){
+        let seek_duration = Duration::from_millis(position as u64);
+        if let Err(e) = self.sink.lock().unwrap().try_seek(seek_duration) {
+            println!("Seeking not supported for this file. {}",e);
+        }
+    }
+
+    pub fn get_playing(&self) -> bool{
+        return *self.up.lock().unwrap();
+    }
+
+    pub fn get_song_duration(&self) -> Option<Duration>{
+        return *self.current_duration.lock().unwrap()
+    }
+
+    pub fn get_current_song(&self) -> PathBuf{
+        let index = *self.index.lock().unwrap();
+        let queu_bind = self.queue.lock().unwrap();
+        let path_wrapped = queu_bind.get(index);
+        match path_wrapped{
+            Some(path) => {return path.to_path_buf()},
+            _ => {return PathBuf::new()}
+        }
+    }
+
+    pub fn shuffle_queu(&self){
+        let mut current_queue = self.queue.lock().unwrap();
+        let index = *self.index.lock().unwrap();
+        let mut rng = rand::rng();
+        current_queue[index + 1..].shuffle(&mut rng);
     }
 }
