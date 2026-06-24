@@ -34,6 +34,12 @@
         --right-bg: #141419;
         --range-bg: #5d5f60;
     }
+    .icon{
+        filter: invert(1);
+    }
+    .ActionButtonImg[src="./assets/loop-active.svg"]{
+        filter: none;
+    }
 }
 
 
@@ -88,12 +94,24 @@ body{
     display: flex;
     flex-direction: column;
 }
+#current-playing{
+    justify-content: left;
+    padding: 10px;
+}
+#current-playing > span {
+    text-align: left;
+}
+#footer-middle{
+    flex: 2;
+}
 
 .footerItem{
-    margin: 10px auto;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    padding:5px;
+    flex: 1;
 }
 
 .barHeader{
@@ -121,6 +139,7 @@ body{
 .icon{
     width: 30px;    
     height: 30px;
+    pointer-events: none;
 }
 
 #left-bar-directories{
@@ -170,13 +189,25 @@ button{
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding:5px;
     gap: 5px;
     flex-shrink: 0; 
     width: max-content;
 }
 
+#position{
+    display: block;    
+    width: 500px;
+}
+#position::-webkit-slider-thumb{
+        box-shadow: -505px 0 0 505px #6ed4dfbd;
+}
 
+#volume-box{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-items: center;
+}
 .PQButton{
     display: inline-block;
     background-color: var(--right-bg);
@@ -209,7 +240,7 @@ input[type="range"] {
     overflow: clip; 
 }
 
-input[type="range"]::-webkit-slider-thumb {
+[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     width: 0px;

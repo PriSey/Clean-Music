@@ -10,12 +10,12 @@
         <title>Tauri App Test</title>
     </head>
     <body>
-        <div id="header"><h1>Clean Music V2</h1></div>
+        <div id="header"><h1><center>Clean Music</center></h1></div>
         <div id="mainPage">
             <div id="leftBar">
                 <center><h5 class="barHeader">Select your music directory</h5></center>
 
-                <button id="folder-selector"> <img id="file-icon" class="icon" src="./images/file-icon.png"> <span id="path-slector-text">Select a folder</span></button>
+                <button id="folder-selector"> <img id="file-icon" class="icon" src="./assets/folder.svg"> <span id="path-slector-text">Select a folder</span></button>
 
                 <div id="left-bar-directories" class="display">
                     <p></p>
@@ -31,18 +31,23 @@
         </div>
         <div id="footer">
             <div id="current-playing" class="footerItem">
-                <span></span>
+                <span id="song-title"></span>
             </div>
-            <div class="buttonBox footerItem">
-                <button id="a1" class="actionButton">Play</button>
-                <button id="a0" class="actionButton">Pause</button>
-                <button id="a2" class="actionButton">Skip Forward</button>
-                <button id="a3" class="actionButton">Skip Backward</button>
-                <button id="a4" class="actionButton">Clear Queue</button>
+            <div class="footerItem" id="footer-middle">
+                <div class="buttonBox">
+                    <button id="a55" class="actionButton changer"><img src="./assets/loop.svg" data-image1="./assets/loop.svg" data-image2="./assets/loop-active.svg" class="ActionButtonImg icon"></button>
+                    <button id="a3" class="actionButton"><img src="./assets/skip-back.svg" class="ActionButtonImg icon"></button>
+                    <button id="a00" class="actionButton changer"><img src="./assets/pause.svg" data-image1="./assets/pause.svg" data-image2="./assets/play.svg" class="ActionButtonImg icon"></button>
+                    <button id="a2" class="actionButton"><img src="./assets/skip-forward.svg" class="ActionButtonImg icon"></button>
+                    <button id="a4" class="actionButton"><img src="./assets/clear.svg" class="ActionButtonImg icon"></button>
+                </div>
+                <input type="range" name="position" id="position" min="0" max="1000" value="0" disabled>
             </div>
-            <div id="volume-box" class="footerItem">
-                <img src="./assets/Volume.svg" id="volume-icon" class="icon">
-                <input type="range" name="Volume" id="volume" min="0" max="100" value="100">
+            <div class="footerItem">
+                <div id="volume-box">
+                    <img src="./assets/volume.svg" id="volume-icon" class="icon">
+                    <input type="range" name="Volume" id="volume" min="0" max="100" value="100">
+                </div>
             </div>
         </div>
     </body>
