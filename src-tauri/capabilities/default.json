@@ -9,6 +9,13 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "dialog:default"
+    "dialog:default",
+     {
+        "identifier": "fs:allow-read-file",
+        "scope": {
+        "allow": ["$APPCACHE/**", "$CACHE/**"],
+        "requireLiteralLeadingDot": false
+        }
+     }
   ]
 }

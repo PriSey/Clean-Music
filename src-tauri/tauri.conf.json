@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "CleanMusic",
+  "productName": "Clean-Music",
   "version": "0.1.0",
-  "identifier": "com.seysha.CleanMusic",
+  "identifier": "com.Clean-Music.app",
   "build": {
     "frontendDist": "../src"
   },
@@ -18,7 +18,14 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; img-src 'self' asset: https://asset.localhost",
+        "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "requireLiteralLeadingDot": false,
+          "allow": ["**/*"]
+        }
+      }
     }
   },
   "bundle": {
