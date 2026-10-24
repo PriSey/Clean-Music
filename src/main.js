@@ -1,4 +1,4 @@
-const { invoke } = window.__TAURI__.core;
+const { invoke, convertFileSrc } = window.__TAURI__.core;
 const {listen} = window.__TAURI__.event;
 const { open } = window.__TAURI__.dialog;
 
@@ -9,6 +9,7 @@ let folderSelectButton;
 let lbd;
 let song_disp;
 let pos_interaction = false;
+let previous_path = null;
 
 listen("LeftbarDirButtons", (event) => {
 
@@ -28,16 +29,26 @@ listen("LeftbarDirButtons", (event) => {
 }); 
 
 listen("CreateSongButtons", (event) => {
+  let title = event.payload.title;
+  let source = convertFileSrc(event.payload.thumbnail);
+  let path = event.payload.path;
+
+  let thumbnail_container = document.createElement("img");
+  thumbnail_container.src = source;
+  thumbnail_container.classList.add("thumbnail");
+
+  let song_container = document.createElement("div");
+  song_container.classList.add("song_container")
 
   let song_box = document.createElement("div");
   song_box.classList.add("songBox")
-  let title = document.createElement("span");
-  title.innerText = event.payload.text;
-  title.classList.add("songTitle")
+  let title_container = document.createElement("span");
+  title_container.innerText = title;
+  title_container.classList.add("songTitle")
   let play = document.createElement("button");
   play.classList.add("PButton")
   play.classList.add("PQButton")
-  play.dataset.path = event.payload.id;
+  play.dataset.path = path;
   let play_img = document.createElement("img")
   play_img.src = "./assets/play.svg"
   play_img.classList.add("icon");
@@ -45,13 +56,15 @@ listen("CreateSongButtons", (event) => {
 
   play.addEventListener("click", async function(clickEvent) {
     let inner_path = clickEvent.target.dataset.path;
-    await invoke("play_song",{path:inner_path});
+    let folder_disp = document.getElementById("folderDisp");
+    let folder_path =  folder_disp.dataset.path;
+    await invoke("play_song",{path:folder_path,song:inner_path});
   });
 
   let queue = document.createElement("button");
   queue.classList.add("QButton")
   queue.classList.add("PQButton")
-  queue.dataset.path = event.payload.id;
+  queue.dataset.path = path;
   let queue_img = document.createElement("img")
   queue_img.src = "./assets/queue.svg"
   queue_img.classList.add("icon");
@@ -66,11 +79,13 @@ listen("CreateSongButtons", (event) => {
   let button_box = document.createElement("div");
   button_box.classList.add("ButtonBox");
 
-  song_box.appendChild(title);
+  song_container.appendChild(thumbnail_container);
+  song_container.appendChild(title_container);
   button_box.appendChild(play);
   button_box.appendChild(queue);
 
-  song_box.appendChild(button_box)
+  song_box.appendChild(song_container);
+  song_box.appendChild(button_box);
 
   song_disp.appendChild(song_box);
 
@@ -84,6 +99,12 @@ async function directoryButtonFunction(clickEvent){
 
   let target_id = event.target.id;
   let target_path = event.target.dataset.path;
+  
+  folder_disp.dataset.path = target_path;
+
+
+  let song_container = document.createElement("div");
+  song_container.classList.add("song_container");
 
   let folder_name = document.createElement("span");
   folder_name.textContent = document.getElementById(target_id).dataset.name;
@@ -143,7 +164,9 @@ async function directoryButtonFunction(clickEvent){
   let button_box = document.createElement("div");
   button_box.classList.add("ButtonBox");
 
-  folder_disp.appendChild(folder_name);
+  song_container.appendChild(folder_name);
+
+  folder_disp.appendChild(song_container);
 
   button_box.appendChild(play);
   button_box.appendChild(queue);
@@ -171,14 +194,38 @@ async function updateCurrentPlaying(){
   let is_playing = await invoke("get_up");
   let current_playing_disp = document.getElementById("current-playing");
   let song_title_disp = current_playing_disp.querySelector("#song-title");
-  if (is_playing){
-    let song_title = await invoke("get_current_song");
-    song_title_disp.innerText = song_title;
-  }
-  else{
-    song_title_disp.innerText = ""
-  }
+  if(!is_playing ){
+    if (previous_path != null){
+      previous_path = null;
+      song_title_disp.innerHTML = ""
+    }
+  } else {
+    let path = await invoke("get_current_song");
+    if (previous_path == path) {
+      console.log("No need: ", path)
+    }
+    else if (previous_path != path){
+      let song = await invoke("generate_song_front",{song:path});
+      song_title_disp.innerHTML = ""
+      let song_container = document.createElement("div")
+      song_container.classList.add("song_container");
 
+      let image = document.createElement("img");
+      image.src = convertFileSrc(song.thumbnail)
+      image.classList.add("thumbnail");
+
+      let song_title = document.createElement("span");
+      song_title.innerText = song.title;
+
+      song_container.appendChild(image);
+      song_container.appendChild(song_title);
+
+      song_title_disp.appendChild(song_container);
+
+      previous_path = path;
+    }
+  }
+  
 }
 
 document.addEventListener("click", async function(event){
@@ -246,7 +293,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setInterval(function() {
       updatePosition(document.getElementById("position"));
       updateCurrentPlaying();
-  },100);
+  },250);
 
 });
 

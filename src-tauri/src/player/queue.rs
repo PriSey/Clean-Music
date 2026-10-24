@@ -74,8 +74,8 @@ impl Queue {
                     recv(dead_recv) -> msg => {
                         if let Ok(_recieved) = msg{
                             if !*monitor_ext_trigger.lock().unwrap(){
-                                 if !*monitor_looping.lock().unwrap(){
-                                *owned_index.lock().unwrap() += 1;
+                                if !*monitor_looping.lock().unwrap(){
+                                    *owned_index.lock().unwrap() += 1;
                                 }
 
                                 let song_wrapped = monitor_queue.lock().unwrap().get(*owned_index.lock().unwrap()).cloned();
@@ -135,13 +135,21 @@ impl Queue {
         };
     }
 
-    pub fn clear(&self) {
+    pub fn reset(&self) {
         *self.ext_trigger.lock().unwrap() = true;
         self.queue.lock().unwrap().clear();
         self.sink.lock().unwrap().stop();
         *self.index.lock().unwrap() = 0;
         *self.up.lock().unwrap() = false;
     }
+
+    pub fn clear(&self){
+      *self.ext_trigger.lock().unwrap() = true;
+      self.queue.lock().unwrap().clear();
+      self.sink.lock().unwrap().stop();
+      *self.up.lock().unwrap() = false;
+    }
+    
 
     pub fn stop(&self) {
         let _ = &self.sink.lock().unwrap().stop();
@@ -156,6 +164,11 @@ impl Queue {
             self.upd_send.send(0).unwrap();
             *self.ext_trigger.lock().unwrap() = true;
         }
+    }
+
+    pub fn go_to(&self, position:usize){
+      *self.index.lock().unwrap() = position;
+      println!("Going to {}", *self.index.lock().unwrap());
     }
 
     pub fn pause(&self) {

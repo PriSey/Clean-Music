@@ -94,6 +94,18 @@ body{
     display: flex;
     flex-direction: column;
 }
+.thumbnail{
+    height: 50px;
+    width: 50px;
+    border-radius: 10px;
+    margin: 5px;
+}
+.song_container{
+    display: flex;
+    align-items: center;
+    justify-content: left;
+    flex: 9;
+}
 #current-playing{
     justify-content: left;
     padding: 10px;
@@ -192,6 +204,7 @@ button{
     gap: 5px;
     flex-shrink: 0; 
     width: max-content;
+    flex: 1;
 }
 
 #position{
