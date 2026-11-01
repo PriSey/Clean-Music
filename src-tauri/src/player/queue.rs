@@ -1,19 +1,17 @@
 use crossbeam_channel::{select_biased, Sender};
-use rand::{prelude::*, rng};
-use rodio::{Decoder, Player, Source};
+use rand::{prelude::*};
+use rodio::{Decoder, Player, Source, mixer};
 use std::{fs, path::PathBuf, sync::Arc, sync::Mutex, thread, time::Duration};
-use tauri::utils::config::Position;
 
 #[derive(Clone)]
 pub struct Queue {
     queue: Arc<Mutex<Vec<PathBuf>>>,
-    stream_handle: Arc<rodio::MixerDeviceSink>,
     sink: Arc<Mutex<Player>>,
     up: Arc<Mutex<bool>>,
     index: Arc<Mutex<usize>>,
     upd_send: Sender<isize>,
     looping: Arc<Mutex<bool>>,
-    ext_trigger: Arc<Mutex<bool>>,
+    kill_send: Sender<()>,
     current_duration: Arc<Mutex<Option<Duration>>>,
 }
 
@@ -29,42 +27,72 @@ impl Queue {
         let index = Arc::new(Mutex::new(0));
         let current_duration = Arc::new(Mutex::new(None));
 
-        let ext_trigger = Arc::new(Mutex::new(true));
-
         let (dead_send, dead_recv) = crossbeam_channel::unbounded();
         let (upd_send, upd_recv) = crossbeam_channel::unbounded::<isize>();
+        let (kill_send, kill_recv) = crossbeam_channel::unbounded();
 
         let monitor_sink = Arc::clone(&sink);
         let monitor_queue = Arc::clone(&queue);
         let monitor_up = Arc::clone(&up);
         let monitor_looping = Arc::clone(&looping);
+        let monitor_kill_request = Arc::new(Mutex::new(false));
+        let monitor_stream_handle = Arc::clone(&stream_handle);
 
         let monitor_duration = Arc::clone(&current_duration);
-
-        let monitor_ext_trigger = Arc::clone(&ext_trigger);
 
         let monitor_index = Arc::clone(&index);
 
         let _monitor_thread = thread::spawn(move || {
+            let mut current_player_thread: Option<std::thread::JoinHandle<()>> = None;
             loop {
                 let owned_index = Arc::clone(&monitor_index);
                 select_biased! {
+
+                    recv(kill_recv) -> msg => {
+                      println!("Recieved");
+                      if let Ok(_recieved) = msg{
+                        monitor_sink.lock().unwrap().stop();
+                        *monitor_kill_request.lock().unwrap() = true;
+                        match current_player_thread.take(){
+                            Some(p_thread) => {_ = p_thread.join();},
+                            _ => {}
+                        }
+                        *monitor_kill_request.lock().unwrap() = false;
+                        current_player_thread = None;
+
+                      }
+                    }
+
                     recv(upd_recv) -> msg => {
+                        println!("Recieved");
                         if let Ok(increment) = msg{
-                            *monitor_ext_trigger.lock().unwrap() = false;
+                            let last = monitor_queue.lock().unwrap().len().saturating_sub(1);
                             let new;
                             if increment > 0{
                                 let current_idx: usize = *owned_index.lock().unwrap();
-                                new = current_idx.saturating_add(increment.unsigned_abs());
+                                new = current_idx.saturating_add(increment.unsigned_abs()).min(last);
                             } else if increment < 0{
                                 let current_idx: usize = *owned_index.lock().unwrap();
                                 new = current_idx.saturating_sub(increment.unsigned_abs());
-                            } else {new = *owned_index.lock().unwrap()}
+                            } else{
+                              if*monitor_up.lock().unwrap() == false{
+                                new = *owned_index.lock().unwrap()
+                              } else {
+                                continue;
+                              }
+                            }
                             *owned_index.lock().unwrap() = new;
                             let song_wrapped = monitor_queue.lock().unwrap().get(*owned_index.lock().unwrap()).cloned();
                             match song_wrapped{
                                 Some(song) => {
-                                    monitor_play(&monitor_sink, &dead_send,song, &monitor_duration, &monitor_up);
+                                    match current_player_thread.take(){
+                                      Some(p_thread) => {
+                                        if p_thread.is_finished(){
+                                          current_player_thread = Some(monitor_play(monitor_stream_handle.mixer(),&monitor_sink, &dead_send, song, &monitor_duration, &monitor_up, &monitor_kill_request));
+                                        }
+                                      },
+                                      _ => {current_player_thread = Some(monitor_play(monitor_stream_handle.mixer(),&monitor_sink, &dead_send, song, &monitor_duration, &monitor_up, &monitor_kill_request))}
+                                    }
                                 },
                                 _ => {*monitor_up.lock().unwrap() = false;}
                             }
@@ -72,98 +100,114 @@ impl Queue {
                     }
 
                     recv(dead_recv) -> msg => {
+                        println!("Recieved");
                         if let Ok(_recieved) = msg{
-                            if !*monitor_ext_trigger.lock().unwrap(){
-                                if !*monitor_looping.lock().unwrap(){
-                                    *owned_index.lock().unwrap() += 1;
-                                }
+                          if !*monitor_looping.lock().unwrap(){
+                              *owned_index.lock().unwrap() += 1;
+                          }
 
-                                let song_wrapped = monitor_queue.lock().unwrap().get(*owned_index.lock().unwrap()).cloned();
-                                match song_wrapped{
-                                    Some(song) => {
-                                        monitor_play(&monitor_sink, &dead_send,song, &monitor_duration, &monitor_up);
-                                    },
-                                    _ => {*monitor_up.lock().unwrap() = false;}
+                          let song_wrapped = monitor_queue.lock().unwrap().get(*owned_index.lock().unwrap()).cloned();
+                          match song_wrapped{
+                              Some(song) => {
+                                match current_player_thread.take(){
+                                  Some(p_thread) => {
+                                      if p_thread.is_finished(){
+                                        current_player_thread = Some(monitor_play(monitor_stream_handle.mixer(),&monitor_sink, &dead_send, song, &monitor_duration, &monitor_up, &monitor_kill_request));
+                                    }
+                                  },
+                                  _ => {current_player_thread = Some(monitor_play(monitor_stream_handle.mixer(),&monitor_sink, &dead_send, song, &monitor_duration, &monitor_up, &monitor_kill_request))}
                                 }
-                            }
+                              },
+                              _ => {*monitor_up.lock().unwrap() = false;}
+                          }      
                         }
                     }
+
                 }
             }
 
             fn monitor_play(
+                stream_handle: &mixer::Mixer,
                 sink: &Arc<Mutex<Player>>,
                 dead: &Sender<()>,
                 path: PathBuf,
                 duration_var: &Arc<Mutex<Option<Duration>>>,
                 up: &Arc<Mutex<bool>>,
-            ) {
+                kill_request: &Arc<Mutex<bool>>
+            ) -> std::thread::JoinHandle<()>{
+                let volume = sink.lock().unwrap().volume();
+                let new = Player::connect_new(stream_handle);
+                new.set_volume(volume);
+                *sink.lock().unwrap() = new;
                 let owned_up = Arc::clone(up);
                 let file = fs::File::open(path.clone()).unwrap();
                 let source = Decoder::try_from(file).unwrap();
                 let owned_duration_var = Arc::clone(duration_var);
                 *owned_duration_var.lock().unwrap() = source.total_duration();
                 let owned_sink = Arc::clone(sink);
+                let owned_kill_request = Arc::clone(kill_request);
                 let owned_dead = dead.clone();
-                let _player = thread::spawn(move || {
-                    *owned_up.lock().unwrap() = true;
-                    owned_sink.lock().unwrap().append(source);
+                *up.lock().unwrap() = true;
+                let player = thread::spawn(move || {
+                    let mut kill = false;
                     owned_sink.lock().unwrap().play();
+                    println!("[player] before append");
+                    owned_sink.lock().unwrap().append(source);
+                    println!("[player] after append");
                     loop {
-                        thread::sleep(std::time::Duration::from_millis(100));
+                        thread::sleep(std::time::Duration::from_millis(10));
+                        println!("Player thread is active");
                         if owned_sink.lock().unwrap().empty() {
                             break;
                         }
+                        if *owned_kill_request.lock().unwrap(){
+                          kill = true;
+                          break;
+                        }
                     }
+
                     *owned_up.lock().unwrap() = false;
-                    *owned_duration_var.lock().unwrap() = None;
-                    owned_dead.send(()).unwrap();
+                    *owned_duration_var.lock().unwrap() = None;                    
+                    if kill == false{
+                        owned_dead.send(()).unwrap();
+                    }
                 });
+                return player;
             }
         });
 
         return Queue {
             queue,
-            stream_handle,
             sink,
             up,
             index,
             upd_send,
             looping,
-            ext_trigger,
+            kill_send,
             current_duration,
         };
     }
 
+    pub fn stop(&self) {
+      self.kill_send.send(()).unwrap();
+    }
+
     pub fn reset(&self) {
-        *self.ext_trigger.lock().unwrap() = true;
         self.queue.lock().unwrap().clear();
-        self.sink.lock().unwrap().stop();
+        self.stop();
         *self.index.lock().unwrap() = 0;
         *self.up.lock().unwrap() = false;
     }
 
     pub fn clear(&self){
-      *self.ext_trigger.lock().unwrap() = true;
       self.queue.lock().unwrap().clear();
-      self.sink.lock().unwrap().stop();
+      self.stop();
       *self.up.lock().unwrap() = false;
     }
     
-
-    pub fn stop(&self) {
-        let _ = &self.sink.lock().unwrap().stop();
-    }
-
     pub fn add_songs(&self, song: Vec<PathBuf>) {
-        {
-            self.queue.lock().unwrap().extend(song);
-        }
-        if !*self.up.lock().unwrap() {
-            *self.ext_trigger.lock().unwrap() = true;
-            self.upd_send.send(0).unwrap();
-            *self.ext_trigger.lock().unwrap() = true;
-        }
+      self.queue.lock().unwrap().extend(song);
+      self.upd_send.send(0).unwrap();
     }
 
     pub fn go_to(&self, position:usize){
@@ -181,14 +225,12 @@ impl Queue {
 
     pub fn skip_forward(&self) {
         self.pause();
-        *self.ext_trigger.lock().unwrap() = true;
         self.stop();
         self.upd_send.send(1).unwrap();
     }
 
     pub fn skip_backward(&self) {
         self.pause();
-        *self.ext_trigger.lock().unwrap() = true;
         self.stop();
         self.upd_send.send(-1).unwrap();
     }

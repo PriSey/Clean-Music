@@ -148,10 +148,10 @@ async function directoryButtonFunction(clickEvent){
     await invoke("fetch_songs",{path: target_path})
   }
 
-  else{
+   else{
     play.addEventListener("click", async function(clickEvent) {
     let inner_path = clickEvent.target.dataset.path;
-    await invoke("play_song",{path:inner_path});
+    await invoke("play_single_song",{path:inner_path});
     });
 
     queue.addEventListener("click", async function(clickEvent) {
@@ -191,16 +191,19 @@ async function pickDirectory(btn){
 }
 
 async function updateCurrentPlaying(){
+  console.log("Updating currently playing");
   let is_playing = await invoke("get_up");
   let current_playing_disp = document.getElementById("current-playing");
   let song_title_disp = current_playing_disp.querySelector("#song-title");
   if(!is_playing ){
     if (previous_path != null){
       previous_path = null;
-      song_title_disp.innerHTML = ""
+      console.log("Nothing is playing");
+      song_title_disp.innerHTML = "";
     }
   } else {
     let path = await invoke("get_current_song");
+    console.log(path)
     if (previous_path == path) {
       console.log("No need: ", path)
     }
@@ -249,6 +252,7 @@ document.addEventListener("click", async function(event){
 
 async function updatePosition(range){
   let is_playing = await invoke("get_up");
+  console.log(is_playing)
   if (is_playing && !pos_interaction){
     range.disabled = false;
     range.value = await invoke("get_position");

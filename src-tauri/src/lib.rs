@@ -11,7 +11,7 @@ use std::sync::{OnceLock, LazyLock};
 use tauri::{Emitter, Manager};
 use tauri_plugin_fs;
 use tauri::WindowEvent;
-use lofty::{file::TaggedFile, prelude::*, probe::Probe, read_from_path, tag, config::ParseOptions};
+use lofty::{prelude::*, probe::Probe, config::ParseOptions};
 use std::collections::HashMap;
 use serde_json;
 use std::collections::hash_map::DefaultHasher;
@@ -65,7 +65,7 @@ fn emit_command<T: ::serde::Serialize + std::clone::Clone>(
 }
 
 #[tauri::command]
-fn fetch_songs(window: tauri::Window, path: String) {
+async fn fetch_songs(window: tauri::Window, path: String) {
     let songs = MUSIC_PLAYER.load_dir(PathBuf::from(path));
     let songs_song = generate_songs(songs);
     let songs_sorted = MUSIC_PLAYER.sort_songs(songs_song);
@@ -76,7 +76,7 @@ fn fetch_songs(window: tauri::Window, path: String) {
 }
 
 #[tauri::command]
-fn generate_song_front(song:String) -> Song{
+async fn generate_song_front(song:String) -> Song{
     let mut song_vec:Vec<PathBuf> = Vec::new();
     let song_path = PathBuf::from(song);
     song_vec.push(song_path);
@@ -89,7 +89,6 @@ fn generate_song(song: PathBuf, songs_known: &mut HashMap<PathBuf, Song>) -> Son
     if let Some(song_found) = songs_known.get(&song) {
         return song_found.clone();
     }
-
     let start = std::time::Instant::now();
     let tagged_file = Probe::open(song.clone())
     .unwrap()
@@ -192,7 +191,7 @@ fn queue_dir(path: String) {
 }
 
 #[tauri::command]
-fn play_dir(path: String) {
+async fn play_dir(path: String) {
     let dir_paths = MUSIC_PLAYER.load_dir(PathBuf::from(path));
     MUSIC_PLAYER.play_dir(generate_songs(dir_paths),false);
 }
@@ -203,10 +202,22 @@ fn queue_song(path: String) {
 }
 
 #[tauri::command]
-fn play_song(path: String, song: String) {
+async fn play_song(path: String, song: String) {
     let dir_paths = MUSIC_PLAYER.load_dir(PathBuf::from(path));
     MUSIC_PLAYER.play_song(generate_songs(dir_paths),song);
 }
+
+
+#[tauri::command]
+fn play_single_song(path: String){
+    MUSIC_PLAYER.play_single_song(PathBuf::from(path));
+}
+
+// #[tauri::command]
+// fn play__song_raw(ong: String) {
+//     let dir_paths = MUSIC_PLAYER.load_dir(PathBuf::from(path));
+//     MUSIC_PLAYER.play_song(generate_songs(dir_paths),song);
+// }
 
 #[tauri::command]
 fn send_command(cmd: usize) {
@@ -219,7 +230,7 @@ fn set_volume(volume: String) {
 }
 
 #[tauri::command]
-fn get_position() -> f32 {
+async fn get_position() -> f32 {
     let total_pos = Duration::as_millis(&MUSIC_PLAYER.get_song_duration()) as f32;
     let real_pos = MUSIC_PLAYER.get_position() as f32;
     let virt_pos = (real_pos / total_pos) * 1000.0;
@@ -227,7 +238,7 @@ fn get_position() -> f32 {
 }
 
 #[tauri::command]
-fn get_up() -> bool {
+async fn get_up() -> bool {
     return MUSIC_PLAYER.get_playing();
 }
 
@@ -238,7 +249,7 @@ fn seek_position(virtual_position: f32) {
     MUSIC_PLAYER.seek(real_pos as usize);
 }
 #[tauri::command]
-fn get_current_song() -> String {
+async fn get_current_song() -> String {
     let current_path_dir = MUSIC_PLAYER.current();
     let song = current_path_dir.to_string_lossy().to_string();
     return song;
@@ -288,14 +299,14 @@ pub fn run() {
             get_up,
             seek_position,
             get_current_song,
-            generate_song_front
+            generate_song_front,
+            play_single_song
             
         ])
         .setup(|app| {
             SESSION_THUMBNAIL_CACHE.set(
                 app.path().app_cache_dir().unwrap().join("playlist_thumbs")
             ).unwrap();
-
 
             fs::remove_dir_all(&SESSION_THUMBNAIL_CACHE.get().unwrap()).ok();
             fs::create_dir_all(&SESSION_THUMBNAIL_CACHE.get().unwrap()).expect("CRASH: failed to create cache dir");

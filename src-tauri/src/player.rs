@@ -1,8 +1,6 @@
 use std::{collections::HashMap, fs, fs::ReadDir, path::PathBuf, time::Duration};
 mod queue;
-use lofty::{file::TaggedFile, prelude::*, probe::Probe, read_from_path};
 use queue::Queue;
-use tokio::fs::File;
 
 #[derive(Clone, serde::Serialize, serde::Deserialize, Debug)]
 pub struct Song {
@@ -56,6 +54,11 @@ impl Player {
         self.queue.go_to(position);
 
         self.play_dir(dir, true);
+    }
+
+    pub fn play_single_song(&self, song: PathBuf) {
+        self.queue.clear();
+        self.queue.add_songs(self.load_song(song));
     }
 
     pub fn queue_song(&self, song: PathBuf) {
