@@ -51,8 +51,8 @@ impl Queue {
                     recv(kill_recv) -> msg => {
                       println!("Recieved");
                       if let Ok(_recieved) = msg{
-                        monitor_sink.lock().unwrap().stop();
                         *monitor_kill_request.lock().unwrap() = true;
+                        monitor_sink.lock().unwrap().stop();
                         match current_player_thread.take(){
                             Some(p_thread) => {_ = p_thread.join();},
                             _ => {}
@@ -157,12 +157,12 @@ impl Queue {
                     loop {
                         thread::sleep(std::time::Duration::from_millis(10));
                         println!("Player thread is active");
-                        if owned_sink.lock().unwrap().empty() {
-                            break;
-                        }
                         if *owned_kill_request.lock().unwrap(){
                           kill = true;
                           break;
+                        }
+                        if owned_sink.lock().unwrap().empty() {
+                            break;
                         }
                     }
 

@@ -4,6 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
 use std::io::{Write,BufReader};
+use std::env;
 mod player;
 use player::Player;
 use player::Song;
@@ -27,6 +28,8 @@ struct ButtonPayload {
     text: String,
     class: String,
 }
+
+
 
 fn pull_paths(path: PathBuf) -> Vec<ButtonPayload> {
     let mut buttons = Vec::new();
