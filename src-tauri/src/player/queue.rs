@@ -1,11 +1,12 @@
 use crossbeam_channel::{select_biased, Sender};
 use rand::{prelude::*};
 use rodio::{Decoder, Player, Source, mixer};
-use std::{fs, path::PathBuf, sync::Arc, sync::Mutex, thread, time::Duration};
+use crate::song::Song;
+use std::{fs, path::PathBuf, sync::Arc, sync::Mutex, thread, time::Duration, option::Option};
 
 #[derive(Clone)]
 pub struct Queue {
-    queue: Arc<Mutex<Vec<PathBuf>>>,
+    queue: Arc<Mutex<Vec<Song>>>,
     sink: Arc<Mutex<Player>>,
     up: Arc<Mutex<bool>>,
     index: Arc<Mutex<usize>>,
@@ -17,7 +18,7 @@ pub struct Queue {
 
 impl Queue {
     pub fn new() -> Self {
-        let queue = Arc::new(Mutex::new(Vec::new()));
+        let queue = Arc::new(Mutex::new(Vec::<Song>::new()));
         let stream_handle = Arc::new(
             rodio::DeviceSinkBuilder::open_default_sink().expect("open default audio stream"),
         );
@@ -49,7 +50,6 @@ impl Queue {
                 select_biased! {
 
                     recv(kill_recv) -> msg => {
-                      println!("Recieved");
                       if let Ok(_recieved) = msg{
                         *monitor_kill_request.lock().unwrap() = true;
                         monitor_sink.lock().unwrap().stop();
@@ -64,7 +64,6 @@ impl Queue {
                     }
 
                     recv(upd_recv) -> msg => {
-                        println!("Recieved");
                         if let Ok(increment) = msg{
                             let last = monitor_queue.lock().unwrap().len().saturating_sub(1);
                             let new;
@@ -88,10 +87,10 @@ impl Queue {
                                     match current_player_thread.take(){
                                       Some(p_thread) => {
                                         if p_thread.is_finished(){
-                                          current_player_thread = Some(monitor_play(monitor_stream_handle.mixer(),&monitor_sink, &dead_send, song, &monitor_duration, &monitor_up, &monitor_kill_request));
+                                          current_player_thread = Some(monitor_play(monitor_stream_handle.mixer(),&monitor_sink, &dead_send, song.path, &monitor_duration, &monitor_up, &monitor_kill_request));
                                         }
                                       },
-                                      _ => {current_player_thread = Some(monitor_play(monitor_stream_handle.mixer(),&monitor_sink, &dead_send, song, &monitor_duration, &monitor_up, &monitor_kill_request))}
+                                      _ => {current_player_thread = Some(monitor_play(monitor_stream_handle.mixer(),&monitor_sink, &dead_send, song.path, &monitor_duration, &monitor_up, &monitor_kill_request))}
                                     }
                                 },
                                 _ => {*monitor_up.lock().unwrap() = false;}
@@ -100,7 +99,6 @@ impl Queue {
                     }
 
                     recv(dead_recv) -> msg => {
-                        println!("Recieved");
                         if let Ok(_recieved) = msg{
                           if !*monitor_looping.lock().unwrap(){
                               *owned_index.lock().unwrap() += 1;
@@ -112,10 +110,10 @@ impl Queue {
                                 match current_player_thread.take(){
                                   Some(p_thread) => {
                                       if p_thread.is_finished(){
-                                        current_player_thread = Some(monitor_play(monitor_stream_handle.mixer(),&monitor_sink, &dead_send, song, &monitor_duration, &monitor_up, &monitor_kill_request));
+                                        current_player_thread = Some(monitor_play(monitor_stream_handle.mixer(),&monitor_sink, &dead_send, song.path, &monitor_duration, &monitor_up, &monitor_kill_request));
                                     }
                                   },
-                                  _ => {current_player_thread = Some(monitor_play(monitor_stream_handle.mixer(),&monitor_sink, &dead_send, song, &monitor_duration, &monitor_up, &monitor_kill_request))}
+                                  _ => {current_player_thread = Some(monitor_play(monitor_stream_handle.mixer(),&monitor_sink, &dead_send, song.path, &monitor_duration, &monitor_up, &monitor_kill_request))}
                                 }
                               },
                               _ => {*monitor_up.lock().unwrap() = false;}
@@ -151,12 +149,9 @@ impl Queue {
                 let player = thread::spawn(move || {
                     let mut kill = false;
                     owned_sink.lock().unwrap().play();
-                    println!("[player] before append");
                     owned_sink.lock().unwrap().append(source);
-                    println!("[player] after append");
                     loop {
                         thread::sleep(std::time::Duration::from_millis(10));
-                        println!("Player thread is active");
                         if *owned_kill_request.lock().unwrap(){
                           kill = true;
                           break;
@@ -205,14 +200,13 @@ impl Queue {
       *self.up.lock().unwrap() = false;
     }
     
-    pub fn add_songs(&self, song: Vec<PathBuf>) {
+    pub fn add_songs(&self, song: Vec<Song>) {
       self.queue.lock().unwrap().extend(song);
       self.upd_send.send(0).unwrap();
     }
 
     pub fn go_to(&self, position:usize){
       *self.index.lock().unwrap() = position;
-      println!("Going to {}", *self.index.lock().unwrap());
     }
 
     pub fn pause(&self) {
@@ -268,14 +262,11 @@ impl Queue {
         return *self.current_duration.lock().unwrap();
     }
 
-    pub fn get_current_song(&self) -> PathBuf {
+    pub fn get_current_song(&self) -> Option<Song> {
         let index = *self.index.lock().unwrap();
         let queu_bind = self.queue.lock().unwrap();
-        let path_wrapped = queu_bind.get(index);
-        match path_wrapped {
-            Some(path) => return path.to_path_buf(),
-            _ => return PathBuf::new(),
-        }
+        let song = queu_bind.get(index).cloned();
+        return song;
     }
 
     pub fn shuffle_queu(&self) {

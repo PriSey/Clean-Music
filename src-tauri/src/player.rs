@@ -1,15 +1,9 @@
 use std::{collections::HashMap, fs, fs::ReadDir, path::PathBuf, time::Duration};
 mod queue;
+use crate::song::Song;
 use queue::Queue;
 
-#[derive(Clone, serde::Serialize, serde::Deserialize, Debug)]
-pub struct Song {
-    pub path: String,
-    pub title: String,
-    pub thumbnail: String,
-    pub album: String,
-    pub track_number: u32,
-}
+
 
 
 #[derive(Clone)]
@@ -42,10 +36,7 @@ impl Player {
         let dir_vec = self.sort_songs(dir.clone());
         let mut position:usize = 0;
         for i in 0..dir_vec.len(){
-          println!("Directory vector: {:?}",*dir_vec.get(i).unwrap());
-          println!("Song: {:?}",song);
-          if *dir_vec.get(i).unwrap() == song{
-            println!("Found at {}",i);
+          if *dir_vec.get(i).unwrap().path.to_string_lossy() == song{
             position = i;
             break;
           }
@@ -56,12 +47,12 @@ impl Player {
         self.play_dir(dir, true);
     }
 
-    pub fn play_single_song(&self, song: PathBuf) {
+    pub fn play_single_song(&self, song: Song) {
         self.queue.clear();
         self.queue.add_songs(self.load_song(song));
     }
 
-    pub fn queue_song(&self, song: PathBuf) {
+    pub fn queue_song(&self, song: Song) {
         self.queue.add_songs(self.load_song(song));
     }
 
@@ -80,7 +71,7 @@ impl Player {
         self.queue.add_songs(dir_vec)
     }
 
-    pub fn load_song(&self, song: PathBuf) -> Vec<PathBuf> {
+    pub fn load_song(&self, song: Song) -> Vec<Song> {
         let mut command = Vec::new();
         command.push(song);
         return command;
@@ -138,11 +129,11 @@ impl Player {
         self.queue.seek_position(position);
     }
 
-    pub fn current(&self) -> PathBuf {
+    pub fn current(&self) -> Option<Song>{
         return self.queue.get_current_song();
     }
 
-    pub fn sort_songs(&self, songs: Vec<Song>) -> Vec<PathBuf>{
+    pub fn sort_songs(&self, songs: Vec<Song>) -> Vec<Song>{
         let mut sorted_command = Vec::new();
         let mut albums: HashMap<String, Vec<Song>> = HashMap::new();
 
@@ -158,9 +149,10 @@ impl Player {
         sorted_albums.sort_by(|a,b| a.0.cmp(&b.0));
 
         for (_title, album) in sorted_albums{
-            let album_paths: Vec<PathBuf>  = album.iter().map(|s| PathBuf::from(&s.path)).collect();
+            let album_paths: Vec<Song>  = album.iter().map(|s| s.clone()).collect();
             sorted_command.extend(album_paths);
         }
+
         return sorted_command;
     }
 }
