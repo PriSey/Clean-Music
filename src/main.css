@@ -130,6 +130,28 @@ body{
     font-size: 100%;
     flex: 1;
 }
+#lyricBar{
+  background-color: var(--left-bg);
+  margin: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  border-radius: 5px;
+  font-size: 100%;
+  text-align: center;
+  padding: 10px;
+  gap: 10px;
+  height: 100%;
+}
+
+.lyricBarVisible{
+  display: flex;
+  flex: 2;
+}
+.lyricBarInvisible{
+  display: none;
+}
 
 #folder-selector{
     font-size: 100%;

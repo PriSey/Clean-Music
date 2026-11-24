@@ -10,6 +10,8 @@ let lbd;
 let song_disp;
 let pos_interaction = false;
 let previous_path = null;
+let last_song = "";
+
 
 listen("LeftbarDirButtons", (event) => {
 
@@ -180,14 +182,26 @@ async function directoryButtonFunction(clickEvent){
 
 async function pickDirectory(btn){
   lbd = document.getElementById("left-bar-directories");
-  const file = await open({
+  const folder = await open({
   multiple: false,
   directory: true,
   });
   lbd.replaceChildren();
-  let folder_name = file.split("/")
+  let folder_name = folder.split("/");
   folderSelectButton.querySelector("#path-slector-text").innerText = folder_name[folder_name.length - 1];
-  await invoke("load_from_music_folder", {path: file})
+  await invoke("write_default_dir", {path: folder});
+  await invoke("load_from_music_folder", {path: folder});
+}
+
+async function loadDirectory() {
+  lbd = document.getElementById("left-bar-directories");
+  lbd.replaceChildren();
+  const folder = await invoke("read_default_dir");
+  if (!folder == ""){
+    let folder_name = folder.split("/");
+    folderSelectButton.querySelector("#path-slector-text").innerText = folder_name[folder_name.length - 1];
+    await invoke("load_from_music_folder", {path: folder})
+  } 
 }
 
 async function updateCurrentPlaying(){
@@ -231,6 +245,7 @@ async function updateCurrentPlaying(){
   
 }
 
+
 document.addEventListener("click", async function(event){
   if(event.target.classList.contains("actionButton")){
       let cmd = Number(event.target.id.at(-1));
@@ -264,6 +279,32 @@ async function updatePosition(range){
   }
 }
 
+async function changeLyrics() {
+  let lyricDisplay = document.getElementById("lyricBar");
+  if (lyricDisplay.classList.contains("lyricBarVisible")){
+    lyricDisplay.classList.remove("lyricBarVisible");
+    lyricDisplay.classList.add("lyricBarInvisible");
+  } else if (lyricDisplay.classList.contains("lyricBarInvisible")){
+    lyricDisplay.classList.remove("lyricBarInvisible");
+    lyricDisplay.classList.add("lyricBarVisible");
+  }
+}
+
+async function getLyrics() {
+  let lyricDisplay = document.getElementById("lyricBar");
+  let up = await invoke("get_up");
+  if (up){
+    let current_song = await invoke("get_current_song");
+    if (last_song != current_song){
+      let lyrics = await invoke("get_lyrics_current");
+      lyricDisplay.innerText = lyrics;
+      last_song = current_song;
+    }
+  } else {
+    lyricDisplay.innerText = "";
+  }
+}
+
 document.getElementById("position").addEventListener("pointerdown", function() {
   pos_interaction = true;
 });
@@ -281,6 +322,7 @@ document.getElementById("position").addEventListener("change", async function(e)
 window.addEventListener("DOMContentLoaded", () => {
   greetInputEl = document.querySelector("#greet-input");
   greetMsgEl = document.querySelector("#greet-msg");
+  let lyricButton = document.getElementById("lyrics");
 
   folderSelectButton = document.getElementById("folder-selector");
   song_disp = document.getElementById("songDisp");
@@ -288,15 +330,23 @@ window.addEventListener("DOMContentLoaded", () => {
     pickDirectory(folderSelectButton);
   });
 
+  lyricButton.addEventListener("click", async function() {
+    changeLyrics();
+  })
+
   let volume_slider = document.getElementById("volume");
   volume_slider.addEventListener("input", async function(event){
     let volume = volume_slider.value;
     await invoke("set_volume", {volume: volume});
   });
 
+  loadDirectory()
+
+
   setInterval(function() {
       updatePosition(document.getElementById("position"));
       updateCurrentPlaying();
+      getLyrics();
   },250);
 
 });
